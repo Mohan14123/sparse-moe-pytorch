@@ -2,7 +2,7 @@
 
 # 🧠 Sparse Mixture-of-Experts (MoE) — PyTorch
 
-**A mathematically rigorous, production-grade implementation of a Sparse MoE layer.**  
+**A from-scratch implementation of a Sparse MoE layer with full MLOps and HuggingFace integration.**  
 Built to demonstrate deep understanding of routing stability, load balancing, capacity management, and LLM engineering.
 
 [![Python](https://img.shields.io/badge/Python-3.10+-3776AB?logo=python&logoColor=white)](https://www.python.org/)
@@ -21,7 +21,7 @@ Built to demonstrate deep understanding of routing stability, load balancing, ca
 
 This project implements a **Sparse Mixture-of-Experts (MoE)** layer from scratch in PyTorch — the core architecture powering state-of-the-art models like [Switch Transformer](https://arxiv.org/abs/2101.03961), [Mixtral 8x7B](https://arxiv.org/abs/2401.04088), and Grok.
 
-The goal is **pedagogical rigor mixed with production-grade ML engineering**: every design decision is tied to a mathematical principle, visually validated through ablations, and supported by industry-standard MLOps practices (Weights & Biases tracking, Hydra config management, HuggingFace integration, Docker containerization, and autoregressive generation).
+The goal is **pedagogical rigor mixed with practical ML engineering**: every design decision is tied to a mathematical principle, visually validated through ablations, and supported by standard MLOps practices (Weights & Biases tracking, Hydra config management, HuggingFace integration, Docker containerization, and autoregressive generation).
 
 ### Key Features
 - ✅ **Top-$k$ Noisy Routing** — Shazeer et al.'s gating mechanism with learned Gaussian noise for exploration.
