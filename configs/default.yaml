@@ -1,0 +1,35 @@
+# ============================================================
+# Sparse MoE — Default Training Configuration
+# ============================================================
+# Override any value from the CLI:
+#   python train.py model.type=dense training.epochs=5
+#   python train.py training.batch_size=128 logging.wandb=true
+# ============================================================
+
+model:
+  type: moe              # "moe" or "dense"
+  d_model: 256
+  d_ff: 512
+  num_experts: 4
+  top_k: 2
+  capacity_factor: 1.5
+  noisy_routing: true
+
+training:
+  epochs: 10
+  batch_size: 64
+  lr: 1e-3
+  accum_steps: 1
+  alpha: 0.01            # Auxiliary loss scale (L_aux)
+  beta: 0.001            # Entropy penalty scale
+  num_samples: null       # null = use full dataset
+
+data:
+  path: dataset/TinyStories/train.csv
+  seq_len: 128
+
+output:
+  dir: outputs
+
+logging:
+  wandb: false
