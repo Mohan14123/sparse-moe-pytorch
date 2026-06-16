@@ -1,0 +1,13 @@
+# ============================================================
+# Sparse MoE — Text Generation Configuration
+# ============================================================
+# Usage:
+#   python generate.py
+#   python generate.py checkpoint=outputs/moe_final.pt prompt="The little cat"
+#   python generate.py max_tokens=100 temperature=0.5
+# ============================================================
+
+checkpoint: outputs/moe_best.pt
+prompt: "Once upon a time"
+max_tokens: 50
+temperature: 0.8
