@@ -1,0 +1,64 @@
+# Dataset (large files — download separately)
+dataset/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+*.pyd
+.Python
+
+# Virtual environments
+.venv/
+venv/
+env/
+test_env/
+
+# Distribution / packaging
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Pytest
+.pytest_cache/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# PyTorch checkpoints & model weights
+*.pt
+*.pth
+*.ckpt
+
+# Logs
+*.log
+
+# Training logs (JSON outputs from training runs)
+outputs/**/*.json
+
+# HuggingFace model exports
+outputs/hf_model/
+
+# Hydra auto-generated outputs
+outputs/**/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Docker
+*.tar
+moe_career_materials.md
+moe_portfolio_review.md
+moe_presentation_materials.md
+changes.md
+completed.md
+progress.json
