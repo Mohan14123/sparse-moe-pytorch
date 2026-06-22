@@ -25,7 +25,7 @@ training:
   num_samples: null       # null = use full dataset
 
 data:
-  path: dataset/TinyStories/train.csv
+  path: datasets/multidomain_train.csv
   seq_len: 128
 
 output:

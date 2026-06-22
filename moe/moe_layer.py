@@ -56,4 +56,6 @@ class MoELayer(nn.Module):
         # 3. Reshape back to original dimensions
         output = output_flat.view(batch_size, seq_len, d_model)
         
+        aux_metrics["dispatch_mask"] = dispatch_mask
+        
         return output, aux_metrics

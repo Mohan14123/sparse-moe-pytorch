@@ -23,42 +23,40 @@ try:
 except ImportError:
     HAS_WANDB = False
 
-class TinyStoriesDataset(torch.utils.data.Dataset):
+class MultiDomainDataset(torch.utils.data.Dataset):
     """
-    Dataset loader for the TinyStories CSV files.
+    Dataset loader for Multi-domain CSV files (Story, Math, Code).
     Reads text data, tokenizes it with OpenAI's tiktoken (gpt2/r50k_base),
-    and creates (input, target) pairs for next-token prediction.
+    and creates (input, target, domain) pairs.
     """
     def __init__(self, csv_file, seq_len=32, num_samples=None):
         print(f"Loading dataset from {csv_file}...")
         
-        # We only take the 'text' column. 
-        # Using a fraction of samples if num_samples is specified for speed testing.
-        df = pd.read_csv(csv_file, usecols=["text"])
+        df = pd.read_csv(csv_file, usecols=["text", "domain"])
         if num_samples and num_samples < len(df):
             df = df.sample(n=num_samples, random_state=42).reset_index(drop=True)
             
-        texts = df['text'].dropna().tolist()
+        texts = df['text'].tolist()
+        domains = df['domain'].tolist()
         
-        # Simple fast BPE tokenizer used by GPT-2
         enc = tiktoken.get_encoding("r50k_base")
         
-        print(f"Tokenizing {len(texts)} stories...")
-        # Since this is a demo, we tokenize everything into memory
+        print(f"Tokenizing {len(texts)} samples...")
         self.data = []
+        self.domains = []
         
-        # We process story by story. For better language models, we'd 
-        # concatenate all stories with an <EOS> token and chunk exactly to seq_len+1.
-        for text in texts:
+        for text, domain in zip(texts, domains):
+            if pd.isna(text):
+                continue
             tokens = enc.encode(text)
-            # Create chunks of seq_len + 1 (for next token prediction)
             for i in range(0, len(tokens) - seq_len, seq_len):
                 chunk = tokens[i:i + seq_len + 1]
                 if len(chunk) == seq_len + 1:
                     self.data.append(chunk)
+                    self.domains.append(domain)
 
-        # Convert to a single large flat tensor
         self.data = torch.tensor(self.data, dtype=torch.long)
+        self.domains = torch.tensor(self.domains, dtype=torch.long)
         self.seq_len = seq_len
         self.vocab_size = enc.n_vocab
         print(f"Built dataset with {len(self.data)} sequences of length {seq_len}. Vocab size: {self.vocab_size}")
@@ -67,9 +65,8 @@ class TinyStoriesDataset(torch.utils.data.Dataset):
         return len(self.data)
         
     def __getitem__(self, idx):
-        # input is tokens 0 to N-1, target is tokens 1 to N
         chunk = self.data[idx]
-        return chunk[:-1], chunk[1:]
+        return chunk[:-1], chunk[1:], self.domains[idx]
 
 
 class BaselineModel(nn.Module):
@@ -160,7 +157,12 @@ def print_model_efficiency(d_model, d_ff, num_experts, top_k):
 
 
 def train(cfg: DictConfig):
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    if torch.cuda.is_available():
+        device = torch.device('cuda')
+    elif torch.backends.mps.is_available():
+        device = torch.device('mps')
+    else:
+        device = torch.device('cpu')
     print(f"Training on device: {device}")
     
     # Model configuration — all values from Hydra YAML config
@@ -182,7 +184,7 @@ def train(cfg: DictConfig):
         raise FileNotFoundError(f"Dataset block not found at {dataset_path}")
         
     num_samples = cfg.training.get("num_samples", None)
-    full_dataset = TinyStoriesDataset(csv_file=dataset_path, seq_len=seq_len, num_samples=num_samples)
+    full_dataset = MultiDomainDataset(csv_file=dataset_path, seq_len=seq_len, num_samples=num_samples)
     vocab_size = full_dataset.vocab_size
     
     # 80/20 train/validation split
@@ -263,12 +265,13 @@ def train(cfg: DictConfig):
         epoch_entropy = 0.0
         epoch_drop_rate = 0.0
         expert_usage_counts = [0] * num_experts
+        expert_usage_by_domain = {d: [0] * num_experts for d in range(3)} # 0: Story, 1: Math, 2: Code
         
         optimizer.zero_grad()
         pbar = tqdm(train_loader, desc=f"Epoch {epoch+1}/{cfg.training.epochs} [Train]")
         
-        for step, (inputs, targets) in enumerate(pbar):
-            inputs, targets = inputs.to(device), targets.to(device)
+        for step, (inputs, targets, domains) in enumerate(pbar):
+            inputs, targets, domains = inputs.to(device), targets.to(device), domains.to(device)
             
             # Forward pass with Mixed Precision
             if device.type == "cuda":
@@ -304,6 +307,16 @@ def train(cfg: DictConfig):
                         # Accumulate expert usage for histogram logs (fraction of batch seq len)
                         for i in range(num_experts):
                             expert_usage_counts[i] += f_i[i].item() * (inputs.size(0) * inputs.size(1))
+                            
+                        # Accumulate domain-specific routing
+                        dispatch_mask = aux_metrics["dispatch_mask"] # [B*S, E]
+                        token_domains = domains.unsqueeze(1).expand(-1, inputs.size(1)).reshape(-1)
+                        for d in range(3):
+                            d_mask = (token_domains == d)
+                            if d_mask.any():
+                                d_usage = dispatch_mask[d_mask].float().sum(dim=0)
+                                for e in range(num_experts):
+                                    expert_usage_by_domain[d][e] += d_usage[e].item()
             else:
                 # CPU Fallback
                 logits, aux_metrics = model(inputs)
@@ -329,6 +342,15 @@ def train(cfg: DictConfig):
                     drop_rate_val = float(aux_metrics["drop_rate"])
                     for i in range(num_experts):
                          expert_usage_counts[i] += f_i[i].item() * (inputs.size(0) * inputs.size(1))
+                    
+                    dispatch_mask = aux_metrics["dispatch_mask"]
+                    token_domains = domains.unsqueeze(1).expand(-1, inputs.size(1)).reshape(-1)
+                    for d in range(3):
+                        d_mask = (token_domains == d)
+                        if d_mask.any():
+                            d_usage = dispatch_mask[d_mask].float().sum(dim=0)
+                            for e in range(num_experts):
+                                expert_usage_by_domain[d][e] += d_usage[e].item()
 
             # Backward pass with accumulation
             accum_steps = cfg.training.accum_steps
@@ -361,7 +383,7 @@ def train(cfg: DictConfig):
         model.eval()
         val_loss = 0.0
         with torch.no_grad():
-            for inputs, targets in val_loader:
+            for inputs, targets, domains in val_loader:
                 inputs, targets = inputs.to(device), targets.to(device)
                 
                 if device.type == "cuda":
@@ -413,7 +435,8 @@ def train(cfg: DictConfig):
             "drop_rate": epoch_drop_rate / num_steps,
             "load_balance_cv": load_balance_cv if model_type == "moe" else None,
             "learning_rate": current_lr,
-            "expert_usage": expert_usage_counts if model_type == "moe" else None
+            "expert_usage": expert_usage_counts if model_type == "moe" else None,
+            "expert_usage_by_domain": expert_usage_by_domain if model_type == "moe" else None
         }
         history.append(epoch_stats)
         
