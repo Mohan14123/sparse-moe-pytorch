@@ -4,6 +4,14 @@ from .dispatcher import Dispatcher
 from .losses import compute_routing_entropy, compute_auxiliary_loss
 from .moe_layer import MoELayer
 from .hf_wrapper import SparseMoEConfig, SparseMoEForCausalLM
+from .multimodal import (
+    PatchEncoder,
+    MultiModalMoEModel,
+    TextLMHead,
+    ClassificationHead,
+    ReconstructionHead,
+    EdgeDetectionHead,
+)
 
 __all__ = [
     "Expert",
@@ -15,4 +23,10 @@ __all__ = [
     "MoELayer",
     "SparseMoEConfig",
     "SparseMoEForCausalLM",
+    "PatchEncoder",
+    "MultiModalMoEModel",
+    "TextLMHead",
+    "ClassificationHead",
+    "ReconstructionHead",
+    "EdgeDetectionHead",
 ]
