@@ -2,7 +2,7 @@
 # Sparse MoE — Default Training Configuration
 # ============================================================
 # Override any value from the CLI:
-#   python train.py model.type=dense training.epochs=5
+#   python train.py model.type=moe training.epochs=5
 #   python train.py training.batch_size=128 logging.wandb=true
 # ============================================================
 
@@ -10,10 +10,12 @@ model:
   type: moe              # "moe" or "dense"
   d_model: 256
   d_ff: 512
-  num_experts: 4
+  num_experts: 8
   top_k: 2
   capacity_factor: 1.5
   noisy_routing: true
+  num_shape_classes: 5
+  patch_size: 8
 
 training:
   epochs: 10
@@ -25,8 +27,9 @@ training:
   num_samples: null       # null = use full dataset
 
 data:
-  path: dataset/TinyStories/train.csv
+  path: datasets/multimodal_train.npz
   seq_len: 128
+  num_tasks: 10
 
 output:
   dir: outputs

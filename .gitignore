@@ -1,5 +1,8 @@
 # Dataset (large files — download separately)
 dataset/
+datasets/*
+!datasets/multidomain_train.csv
+!datasets/multimodal_train.npz
 
 # Python
 __pycache__/
